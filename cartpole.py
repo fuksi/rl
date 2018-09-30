@@ -106,8 +106,21 @@ def test(episodes, agent, target_pos):
             test_len += 1
     print("Average test reward:", test_reward/episodes, "episode length:", test_len/episodes)
 
+def new_reward_1(state, target):
+    return new_reward_2(state, 0)
 
-# Definition of the modified reward function
+def new_reward_2(state, target):
+    pos = state[0]
+    distance = abs(pos - target)
+    if distance < 0.1:
+        return 1
+    elif distance < 0.5:
+        return 0.5
+    elif distance < 1:
+        return 0.3
+    else:
+        return 0.1 
+
 def new_reward(state, target):
     speed_reward = 0
     position_reward = 0
