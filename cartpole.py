@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
+import math
 from agent import Agent, Policy
 from utils import get_space_dim
 
@@ -39,7 +40,7 @@ def train(train_episodes, agent):
             observation, reward, done, info = env.step(action)
 
             # Task 1 - change the reward function
-            # reward = new_reward(observation)
+            reward = new_reward(previous_observation, observation)
 
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation, action_probabilities, action, reward)
@@ -93,10 +94,12 @@ def test(episodes, agent):
             # get the action, act on the environment, save total reward
             # (evaluation=True makes the agent always return what it thinks to be
             # the best action - there is no exploration at this point)
+            # print(observation[0])
+            previous_observation = observation
             action, _ = agent.get_action(observation, evaluation=True)
             observation, reward, done, info = env.step(action)
             # New reward function
-            # reward = new_reward(observation)
+            reward = new_reward(previous_observation, observation)
             if args.render_test:
                 env.render()
             test_reward += reward
@@ -105,16 +108,24 @@ def test(episodes, agent):
 
 
 # Definition of the modified reward function
-def new_reward(state):
-    return 1
-
+def new_reward(prev_state, state):
+    prev_pos = prev_state[0]
+    pos = state[0]
+    speed = state[1]
+    if abs(pos) < abs(prev_pos):
+        if speed > 0:
+            return 3
+        else:
+            return 2
+    else:
+        return 1
 
 # Create a Gym environment
 env = gym.make(args.env)
 
 # Exercise 1
 # For CartPole-v0 - maximum episode length
-# env._max_episode_steps = 200
+env._max_episode_steps = 500
 
 # Get dimensionalities of actions and observations
 action_space_dim = get_space_dim(env.action_space)
