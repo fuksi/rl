@@ -14,11 +14,12 @@ parser.add_argument("--train_episodes", type=int, default=1000, help="Number of 
 parser.add_argument("--render_training", action='store_true',
                     help="Render each frame during training. Will be slower.")
 parser.add_argument("--render_test", action='store_true', help="Render test")
+parser.add_argument("--target_pos", type=int, default=0, help="Target position of the cart")
 args = parser.parse_args()
 
 
 # Policy training function
-def train(train_episodes, agent):
+def train(train_episodes, agent, target_pos):
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
     average_reward_history = []
@@ -40,7 +41,7 @@ def train(train_episodes, agent):
             observation, reward, done, info = env.step(action)
 
             # Task 1 - change the reward function
-            reward = new_reward(previous_observation, observation)
+            reward = new_reward(observation, target_pos)
 
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation, action_probabilities, action, reward)
@@ -84,7 +85,7 @@ def train(train_episodes, agent):
 
 
 # Function to test a trained policy
-def test(episodes, agent):
+def test(episodes, agent, target_pos):
     test_reward, test_len = 0, 0
     for ep in range(episodes):
         done = False
@@ -95,11 +96,10 @@ def test(episodes, agent):
             # (evaluation=True makes the agent always return what it thinks to be
             # the best action - there is no exploration at this point)
             # print(observation[0])
-            previous_observation = observation
             action, _ = agent.get_action(observation, evaluation=True)
             observation, reward, done, info = env.step(action)
             # New reward function
-            reward = new_reward(previous_observation, observation)
+            reward = new_reward(observation, target_pos)
             if args.render_test:
                 env.render()
             test_reward += reward
@@ -108,17 +108,30 @@ def test(episodes, agent):
 
 
 # Definition of the modified reward function
-def new_reward(prev_state, state):
-    prev_pos = prev_state[0]
+def new_reward(state, target):
+    speed_reward = 0
+    position_reward = 0
     pos = state[0]
     speed = state[1]
-    if abs(pos) < abs(prev_pos):
-        if speed > 0:
-            return 3
-        else:
-            return 2
+
+    distance = abs(pos - target)
+    if distance < 0.1:
+        position_reward = 0.7
+    elif distance < 0.5:
+        position_reward = 0.4
+    elif distance < 1:
+        position_reward = 0.2
     else:
-        return 1
+        position_reward = 0.1 
+
+    if pos > target and speed < 0:
+        speed_reward = 0.3
+    elif pos < target and speed > 0:
+        speed_reward = 0.3
+    elif pos == target and speed != 0:
+        speed_reward = 0.1
+
+    return speed_reward + position_reward
 
 # Create a Gym environment
 env = gym.make(args.env)
@@ -145,7 +158,7 @@ print("Action space dimensions:", action_space_dim)
 # Otherwise load the policy from the file and go directly to testing.
 if args.test is None:
     try:
-        train(args.train_episodes, agent)
+        train(args.train_episodes, agent, args.target_pos)
     # Handle Ctrl+C - save model and go to tests
     except KeyboardInterrupt:
         print("Interrupted!")
@@ -156,6 +169,6 @@ else:
     state_dict = torch.load(args.test)
     policy.load_state_dict(state_dict)
 print("Testing...")
-test(100, agent)
+test(100, agent, args.target_pos)
 
 
