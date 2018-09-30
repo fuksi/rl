@@ -106,9 +106,11 @@ def test(episodes, agent, target_pos):
             test_len += 1
     print("Average test reward:", test_reward/episodes, "episode length:", test_len/episodes)
 
+# Reward fn for question 3.2.1
 def new_reward_1(state, target):
     return new_reward_2(state, 0)
 
+# Reward fn for question 3.2.2
 def new_reward_2(state, target):
     pos = state[0]
     distance = abs(pos - target)
@@ -121,6 +123,7 @@ def new_reward_2(state, target):
     else:
         return 0.1 
 
+# Reward fn for question 3.2.3
 def new_reward(state, target):
     speed_reward = 0
     position_reward = 0
