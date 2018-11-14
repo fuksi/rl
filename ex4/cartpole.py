@@ -32,15 +32,10 @@ def train(train_episodes, agent):
         while not done:
             # Get action from the agent
             action, action_probabilities = agent.get_action(observation)
-
             previous_observation = observation
 
             # Perform the action on the environment, get new state and reward
-            # observation = env.step(action)
             observation, reward, done, info = env.step(action.detach().numpy())
-            # action_array = action_probabilities.detach().numpy()
-            # observation, reward, done, info = env.step(action)
-            # observation, reward, done, info = env.step(action_array)
 
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation, action_probabilities, action, reward)

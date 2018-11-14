@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch.distributions import Normal
+from torchvision import transforms
 import numpy as np
 from utils import discount_rewards, softmax_sample
 
@@ -10,6 +11,8 @@ class Policy(torch.nn.Module):
         super().__init__()
         self.state_space = state_space
         self.action_space = action_space
+
+        # Input state, NN with 20 neurons, Output action
         self.fc1 = torch.nn.Linear(state_space, 20)
         self.fc2 = torch.nn.Linear(20, action_space)
         self.init_weights()
@@ -65,11 +68,9 @@ class Agent(object):
             # action = torch.argmax(aprob).item()
         else:
             action = aprob.sample()
-            # action = softmax_sample(aprob)
         return action, aprob
 
     def store_outcome(self, observation, action_output, action_taken, reward):
-        # dist = torch.distributions.Categorical(action_output)
         dist = action_output
         action_taken = torch.Tensor([action_taken]).to(self.train_device)
         log_action_prob = -dist.log_prob(action_taken)
