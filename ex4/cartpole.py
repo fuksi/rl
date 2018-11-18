@@ -31,14 +31,13 @@ def train(train_episodes, agent):
         # Loop until the episode is over
         while not done:
             # Get action from the agent
-            action, action_probabilities = agent.get_action(observation)
-            previous_observation = observation
+            action = agent.get_action(observation)
 
             # Perform the action on the environment, get new state and reward
             observation, reward, done, info = env.step(action.detach().numpy())
 
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(previous_observation, action_probabilities, action, reward)
+            agent.policy.reward_episode.append(reward)
 
             # Draw the frame, if desired
             if args.render_training:
@@ -73,7 +72,7 @@ def train(train_episodes, agent):
     plt.plot(reward_history)
     plt.plot(average_reward_history)
     plt.legend(["Reward", "100-episode average"])
-    plt.title("Reward history (sig=%f, net 18)" % agent.policy.sigma.item())
+    # plt.title("Reward history (sig=%f, net 18)" % agent.policy.sigma.item())
     plt.show()
     print("Training finished.")
 
@@ -99,7 +98,7 @@ agent = Agent(policy)
 # If no model was passed, train a policy from scratch.
 # Otherwise load the policy from the file and go directly to testing.
 train(args.train_episodes, agent)
-model_file = "%s_params.mdl" % args.env
+model_file = "train_params.mdl"
 torch.save(policy.state_dict(), model_file)
 print("Model saved to", model_file)
 # if args.test is None:

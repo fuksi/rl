@@ -1,7 +1,8 @@
 import torch
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions import Normal, Categorical
 from torchvision import transforms
+from torch.autograd import Variable
 import numpy as np
 from utils import discount_rewards, softmax_sample
 
@@ -11,64 +12,88 @@ class Policy(torch.nn.Module):
         super().__init__()
         self.state_space = state_space
         self.action_space = action_space
+        self.gamma = 0.99
 
         # Input state, NN with 20 neurons, Output action
-        self.fc1 = torch.nn.Linear(state_space, 20)
-        self.fc2 = torch.nn.Linear(20, action_space)
-        self.init_weights()
+        self.fc1 = torch.nn.Linear(state_space, 128)
+        self.fc2 = torch.nn.Linear(128, action_space)
 
-    def init_weights(self):
-        for m in self.modules():
-            if type(m) is torch.nn.Linear:
-                torch.nn.init.uniform_(m.weight)
-                torch.nn.init.zeros_(m.bias)
+        # Episode policy and reward history 
+        self.policy_history = Variable(torch.Tensor()) 
+        self.reward_episode = []
+        # Overall reward and loss history
+        self.reward_history = []
+        self.loss_history = []
 
     def forward(self, x):
+        # model = torch.nn.Sequential(
+        #     self.fc1,
+        #     torch.nn.Dropout(p=0.6),
+        #     torch.nn.ReLU(),
+        #     self.fc2,
+        #     torch.nn.Softmax(dim=-1)
+        # )
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
-        return Normal(x, 1)
-
+        return x
 
 class Agent(object):
     def __init__(self, policy):
-        self.train_device = "cpu"  # ""cuda" if torch.cuda.is_available() else "cpu"
-        self.policy = policy.to(self.train_device)
-        self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.batch_size = 1
-        self.gamma = 0.98
+        # self.train_device = "cpu"  # ""cuda" if torch.cuda.is_available() else "cpu"
+        # self.policy = policy.to(self.train_device)
+        self.policy = policy
+        self.optimizer = torch.optim.Adam(policy.parameters(), lr=0.01)
         self.observations = []
         self.actions = []
         self.rewards = []
 
     def episode_finished(self, episode_number):
-        all_actions = torch.stack(self.actions, dim=0).to(self.train_device).squeeze(-1)
-        all_rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
-        self.observations, self.actions, self.rewards = [], [], []
-        discounted_rewards = discount_rewards(all_rewards, self.gamma)
-        discounted_rewards -= torch.mean(discounted_rewards)
-        discounted_rewards /= torch.std(discounted_rewards)
+        R = 0
+        rewards = []
+    
+        # Discount future rewards back to the present using gamma
+        for r in self.policy.reward_episode[::-1]:
+            R = r + self.policy.gamma * R
+            rewards.insert(0,R)
 
-        weighted_probs = all_actions * discounted_rewards
-        loss = torch.sum(weighted_probs)
-        loss.backward()
+        rewards = torch.FloatTensor(rewards)
+        rewards = (rewards - rewards.mean()) / (rewards.std())
+        # Calculate loss
+        loss = (torch.sum(torch.mul(self.policy.policy_history, Variable(rewards)).mul(-1), -1))
 
-        if (episode_number+1) % self.batch_size == 0:
-            self.update_policy()
-
-    def update_policy(self):
-        self.optimizer.step()
         self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        self.policy.loss_history.append(loss.data[0])
+        self.policy.reward_history.append(np.sum(self.policy.reward_episode))
+        self.policy.policy_history = Variable(torch.Tensor())
+        self.policy.reward_episode= []
 
     def get_action(self, observation, evaluation=False):
-        x = torch.from_numpy(observation).float().to(self.train_device)
-        aprob = self.policy.forward(x)
-        if evaluation:
-            pass
-            # action = torch.argmax(aprob).item()
+        state = torch.from_numpy(observation).type(torch.FloatTensor)
+        state = self.policy.forward(Variable(state))
+        c = Categorical(state)
+        action = c.sample()
+        
+        # Add log probability of our chosen action to our history    
+        if self.policy.policy_history.dim() != 0:
+            log_prob = c.log_prob(action).view(1)
+            self.policy.policy_history = torch.cat((self.policy.policy_history, log_prob), 0)
         else:
-            action = aprob.sample()
-        return action, aprob
+            self.policy.policy_history = (c.log_prob(action))
+        return action
+        # x = torch.from_numpy(observation).float().to(self.train_device)
+        # a_est = self.policy.forward(x)
+        # a_prob = Normal(a_est, 0.5)
+        
+        # if evaluation:
+        #     pass
+        #     # action = torch.argmax(aprob).item()
+        # else:
+        # action = a_prob.sample()
+        # return action, a_prob
 
     def store_outcome(self, observation, action_output, action_taken, reward):
         dist = action_output

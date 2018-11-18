@@ -7,7 +7,9 @@ name = "pypi"
 gym = "*"
 numpy = "*"
 matplotlib = "*"
-torchvision = "*"
+jupyter = "*"
+tqdm = "*"
+pandas = "*"
 
 [dev-packages]
 
