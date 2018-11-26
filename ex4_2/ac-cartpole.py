@@ -31,13 +31,13 @@ def train(train_episodes, agent):
         # Loop until the episode is over
         while not done:
             # Get action from the agent
-            action, action_log_prob = agent.get_action(observation, episode_number)
+            action = agent.get_action(observation, episode_number)
 
             # Perform the action on the environment, get new state and reward
-            observation, reward, done, info = env.step(action.detach().numpy())
+            observation, reward, done, info = env.step(action)
 
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(reward, action_log_prob)
+            agent.store_outcome(reward)
 
             # Draw the frame, if desired
             if args.render_training:
