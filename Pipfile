@@ -8,6 +8,7 @@ gym = "*"
 numpy = "*"
 matplotlib = "*"
 torchvision = "*"
+pygame = "*"
 
 [dev-packages]
 rope = "*"
