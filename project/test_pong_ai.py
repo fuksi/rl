@@ -17,7 +17,7 @@ def plot(observation):
 
 
 env = Pong(headless=args.headless)
-episodes = 10
+episodes = 100000000000
 
 player_id = 1
 opponent_id = 3 - player_id
@@ -38,12 +38,11 @@ for episode_number in range(0,episodes):
     ob1 = np.zeros((210, 200, 3))
     while not done:
         state = prepro(ob1)
-        action1 = player.get_action(state)
+        action1, action1_prob = player.get_action(state, episode_number)
         action2 = opponent.get_action()
         (ob1, ob2), (rew1, rew2), done, info = env.step((action1, action2))
 
-        reward_sum += rew1
-        # player.store_outcome(reward)
+        player.store_outcome(rew1, action1_prob)
         # for idx, row in enumerate(ob1):
         #     for col in row:
         #         if col[0] == 255 and col[1] == 255 and col[2] == 255:
@@ -55,7 +54,7 @@ for episode_number in range(0,episodes):
             #plot(ob1) # plot the reset observation
             print("episode {} over".format(episode_number))
     
-    # player.episode_finished(episode_number)
+    player.episode_finished()
 
 # Needs to be called in the end to shut down pygame
 env.end()

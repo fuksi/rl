@@ -3,6 +3,7 @@ import torch
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import random
+from utils import discount_rewards, softmax_sample
 
 class NaiveAI(object):
     def __init__(self, env, player_id=1):
@@ -14,45 +15,50 @@ class NaiveAI(object):
         self.player_id = player_id
         self.bpe = 4
         self.name = "NaiveAI"
+        self.gamma = 0.98
+        self.actions = []
+        self.rewards = []
 
     def get_name(self):
         return self.name
 
-    def get_action(self, ob=None):
-        if ob.any():
-            x = torch.from_numpy(ob).float().to(self.train_device) 
-            x = self.policy.forward(x)
-            x_prob = 0.99
-            other_prob = (1-x_prob) / 2
-            inital_dist = [other_prob, x_prob, other_prob]
-            dist = Categorical(torch.tensor(inital_dist))
-            action = dist.sample()
-            action_prob = dist.log_prob(action) 
+    def get_action(self, ob, episode_number):
+        x = torch.from_numpy(ob).float().to(self.train_device) 
+        x = self.policy.forward(x)
 
-            # 0: stay, 1: up, 2: down
-            return action
-        else:
-            player = self.env.player1 if self.player_id == 1 else self.env.player2
-            my_y = player.y
-            # 6
-            ball_y = self.env.ball.y + (random.random()*self.bpe-self.bpe/2)
-            # ball 4 ->  [2, 6] 
-            y_diff = my_y - ball_y
+        # var = var * np.exp(-0.0001 * episode_number)
+        int_x = int(x.tolist()[0])
+        if int_x is not 1:
+            print(int_x)
+        x_prob = 1 - 1000/(1000 + episode_number) 
+        other_prob = (1-x_prob) / 2
+        inital_dist = [other_prob, x_prob, other_prob]
+        dist = Categorical(torch.tensor(inital_dist))
+        action = dist.sample()
+        action_prob = dist.log_prob(action) 
 
-            if abs(y_diff) < 2:
-                action = 0  # Stay
-            else:
-                if y_diff > 0:
-                    action = self.env.MOVE_UP  # Up
-                else:
-                    action = self.env.MOVE_DOWN  # Down
+        # 0: stay, 1: up, 2: down
+        return action, action_prob
 
-            return action
+    def store_outcome(self, reward, action_log_prob):
+        self.actions.append(action_log_prob)
+        self.rewards.append(torch.Tensor([reward]))
 
-    def reset(self):
-        # Nothing to done for now...
-        return
+    def episode_finished(self):
+        all_actions = torch.stack(self.actions, dim=0).to(self.train_device).squeeze(-1)
+        all_rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
+        self.actions, self.rewards = [], []
+        discounted_rewards = discount_rewards(all_rewards, self.gamma)
+        discounted_rewards -= torch.mean(discounted_rewards)
+        discounted_rewards /= torch.std(discounted_rewards)
 
+        weighted_probs = all_actions * discounted_rewards
+        loss = torch.sum(weighted_probs)
+        loss.backward()
+
+        # Update policy
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
 class Policy(torch.nn.Module):
     def __init__(self):
