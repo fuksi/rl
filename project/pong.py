@@ -15,27 +15,28 @@ class Ball():
         self.last_touch = 0  # Remember who touched the ball last
         self.color = (255, 255, 255)
         self.rect = pygame.Rect(self.x, self.y, w, h)
-        self.MAX_BOUNCE_ANGLE = 60 * 2
+        self.MAX_BOUNCE_ANGLE = 75
         self.reset_ball()
 
     def move(self):
-        self.rect = self.rect.move(self.vector[0], self.vector[1])
-        self.x = self.rect.x
-        self.y = self.rect.y
+        self.x += self.vector[0]
+        self.y += self.vector[1]
         # Collisison with left and right wall
-        if self.x <= 0 - 3:
+        if self.x <= 0 - self.w:
             return 2, True
-        if self.x >= 210 - 2:
+        if self.x >= 210 - self.w:
             return 1, True
         # Collisison with top and bottom wall
         if (self.y - abs(self.vector[1]) <= 35 and self.vector[1] < 0) or (self.y + abs(self.vector[1]) >= 235 and self.vector[1] > 0):
             self.vector = (self.vector[0], -1 * self.vector[1])
+
+        self.rect = pygame.Rect(self.x - self.w/2, self.y-self.h/2, self.w, self.h)
+
         return 0, False
 
     def reflect(self, offcenter, direction, player):
         # print("offcenter: ", offcenter)
-        offcenter = offcenter * direction
-        normalized_offcenter = (offcenter - self.h / 2) / 20
+        normalized_offcenter = offcenter / 10 * direction
         # print("norm offcenter: ",normalized_offcenter)
         bounce_angle = normalized_offcenter * self.MAX_BOUNCE_ANGLE
         # print("bounce_angle: ", bounce_angle)
@@ -48,9 +49,9 @@ class Ball():
 
     def reset_ball(self):
         self.x = 105
-        self.y = 135 - 2
+        self.y = 135
         self.last_touch = 0
-        self.rect = pygame.Rect(self.x, self.y, 5, 5)
+        self.rect = pygame.Rect(self.x - self.w/2, self.y-self.h/2, self.w, self.h)
         # Reset ball in random direction
         bounce_angle = np.random.random() * 40
         side = random.choice([True, False])
@@ -65,7 +66,6 @@ class Ball():
             u = -1
         self.vector = (d * 3 * (math.cos(math.radians(bounce_angle)) + 1), u * 6 * math.sin(math.radians(bounce_angle)))
         self.speed_mul = 0.8
-
 
 
 class Player():
@@ -97,9 +97,9 @@ class Player():
             self.x = 10
             self.color = (0, 255, 0)
         else:
-            self.x = 196
+            self.x = 195
             self.color = (255, 0, 0)
-        self.y = 136
+        self.y = 135
         self.rect = pygame.Rect(self.x, self.y - self.h / 2, self.w, self.h)
 
 
@@ -290,6 +290,7 @@ class Pong():
         # Make sure game doesn't run at more than 30 frames per second
         # If we dont render we dont want this limitation
         self.clock.tick(60)
+        pygame.event.get()
 
         # This method is used for everything regarding the rendering. Here pygame would paint to the window
         pygame.display.flip()
