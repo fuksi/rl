@@ -42,17 +42,18 @@ for episode_number in range(0,episodes):
         action2 = opponent.get_action()
         (ob1, ob2), (rew1, rew2), done, info = env.step((action1, action2))
 
+        reward_sum += rew1
         player.store_outcome(rew1, action1_prob)
         # for idx, row in enumerate(ob1):
         #     for col in row:
         #         if col[0] == 255 and col[1] == 255 and col[2] == 255:
         #             print('vow')
-        if not args.headless:
-            env.render()
+        # if not args.headless:
+        #     env.render()
         if done:
             observation= env.reset()
             #plot(ob1) # plot the reset observation
-            print("episode {} over".format(episode_number))
+            print(f'episode {episode_number} over. Total rewards: {reward_sum}')
     
     player.episode_finished()
 

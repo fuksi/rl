@@ -3,6 +3,7 @@ import torch
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import random
+import numpy as np
 from utils import discount_rewards, softmax_sample
 
 class NaiveAI(object):
@@ -12,6 +13,7 @@ class NaiveAI(object):
         self.env = env
         self.train_device = 'cpu'
         self.policy = Policy()
+        self.optimizer = torch.optim.RMSprop(self.policy.parameters(), lr=5e-3)
         self.player_id = player_id
         self.bpe = 4
         self.name = "NaiveAI"
@@ -24,21 +26,14 @@ class NaiveAI(object):
 
     def get_action(self, ob, episode_number):
         x = torch.from_numpy(ob).float().to(self.train_device) 
-        x = self.policy.forward(x)
-
-        # var = var * np.exp(-0.0001 * episode_number)
-        int_x = int(x.tolist()[0])
-        if int_x is not 1:
-            print(int_x)
-        x_prob = 1 - 1000/(1000 + episode_number) 
-        other_prob = (1-x_prob) / 2
-        inital_dist = [other_prob, x_prob, other_prob]
-        dist = Categorical(torch.tensor(inital_dist))
-        action = dist.sample()
-        action_prob = dist.log_prob(action) 
+        prob_up = self.policy.forward(x)
+        prob_up_float = prob_up.tolist()[0]
+        
+        temp = np.random.uniform()
+        action = 1 if temp < prob_up_float else 2
 
         # 0: stay, 1: up, 2: down
-        return action, action_prob
+        return action, prob_up
 
     def store_outcome(self, reward, action_log_prob):
         self.actions.append(action_log_prob)
@@ -80,4 +75,4 @@ class Policy(torch.nn.Module):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
-        return F.softmax(x, dim=-1)
+        return torch.sigmoid(x)
