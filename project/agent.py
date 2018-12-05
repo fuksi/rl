@@ -10,6 +10,7 @@ class NaiveAI(object):
     def __init__(self, env, player_id=1):
         if type(env) is not Pong:
             raise TypeError("I'm not a very smart AI. All I can play is Pong.")
+        self.train_device = "cpu"  # ""cuda" if torch.cuda.is_available() else "cpu"
         self.env = env
         self.train_device = 'cpu'
         self.policy = Policy()
@@ -25,18 +26,17 @@ class NaiveAI(object):
         return self.name
 
     def get_action(self, ob, episode_number):
-        x = torch.from_numpy(ob).float().to(self.train_device) 
-        prob_up = self.policy.forward(x)
+        action_prob = self.policy.forward(ob)
+        action = softmax_sample(action_prob)
+
+        return action, action_prob 
         prob_up_float = prob_up.tolist()[0]
-        
-        temp = np.random.uniform()
-        action = 1 if temp < prob_up_float else 2
 
-        # 0: stay, 1: up, 2: down
-        return action, prob_up
-
-    def store_outcome(self, reward, action_log_prob):
-        self.actions.append(action_log_prob)
+    def store_outcome(self, reward, action_taken, action_log_prob):
+        dist = torch.distributions.Categorical(action_log_prob)
+        action_taken = torch.Tensor([action_taken]).to(self.train_device)
+        log_action_prob = -dist.log_prob(action_taken)
+        self.actions.append(log_action_prob)
         self.rewards.append(torch.Tensor([reward]))
 
     def episode_finished(self):
@@ -58,7 +58,7 @@ class NaiveAI(object):
 class Policy(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        state_space = 10500
+        state_space = 5
         action_space = 1
         neurons = 200
         self.fc1 = torch.nn.Linear(state_space, neurons)
@@ -75,4 +75,4 @@ class Policy(torch.nn.Module):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
-        return torch.sigmoid(x)
+        return F.softmax(x, dim=-1)
