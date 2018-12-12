@@ -33,6 +33,10 @@ class NaiveAI(object):
         self.fake_labels = []
         self.running_reward = None 
 
+    def load_model(filename):
+        if os.path.isfile(filename):
+            self.policy.load_state_dict(torch.load(filename))
+
     def get_name(self):
         return self.name
 
@@ -101,7 +105,6 @@ class NaiveAI(object):
 class Policy(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        # state_space = 10500
         state_space = 4690
         action_space = 1
         neurons = 100
