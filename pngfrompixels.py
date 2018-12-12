@@ -12,6 +12,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from math import log
 import numpy as np
+import matplotlib.pyplot as plt
 
 #%% [markdown]
 # This is a simple 2 layer fully-connected neural network such as was used in original Karpathy's blogpost

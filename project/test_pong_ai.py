@@ -15,7 +15,8 @@ def plot(observation):
     plt.imshow(observation/255)
     plt.show()
 
-env = Pong(headless=args.headless)
+# env = Pong(headless=args.headless)
+env = Pong(headless=True)
 episodes = 1000000
 
 player_id = 1
@@ -27,7 +28,13 @@ env.set_names(player.get_name(), opponent.get_name())
 
 def prepro(I):
   """ prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
-  I = I[::2,::2,::3] # downsample by factor of 2
+  M, N, R = I.shape
+  for m in range(0,M):
+    for n in range(0,N):
+        color = I[m][n].tolist()
+        if color != [0.0, 0.0, 0.0]:
+            I[m][n][0] = 255
+  I = I[::3,::3,0] # downsample by factor of 2
   I[I != 0] = 1 # everything else (paddles, ball) just set to 1
   return I.astype(np.float).ravel()
 
@@ -44,7 +51,7 @@ for episode_number in range(0,episodes):
         # Save prev_state
         prev_state_1 = cur_state_1
 
-        action1, action1_prob = player.get_action(input_1, episode_number)
+        action1 = player.get_action(input_1, episode_number)
         action2 = opponent.get_action()
         (ob1, ob2), (rew1, rew2), done, info = env.step((action1, action2))
 

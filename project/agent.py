@@ -4,6 +4,7 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import random
 import numpy as np
+import os
 from utils import discount_rewards, softmax_sample
 
 
@@ -20,14 +21,17 @@ class NaiveAI(object):
             self.policy.parameters(), lr=learningrate)
         self.loss = torch.nn.BCELoss(reduction='none')
 
+        if os.path.isfile("model-nn.pt"):
+            self.policy.load_state_dict(torch.load("model-nn.pt"))
+
         self.player_id = player_id
         self.name = "NaiveAI"
         self.gamma = 0.99
-        self.batch_size = 4
+        self.batch_size = 20 
         self.prop_ups = []
         self.rewards = []
         self.fake_labels = []
-        self.running_reward = 0
+        self.running_reward = None 
 
     def get_name(self):
         return self.name
@@ -46,7 +50,7 @@ class NaiveAI(object):
         fake_label = 1.0 if action == 1 else 0.0
         self.fake_labels.append(fake_label)
 
-        return action, prob_up
+        return action
 
     def store_outcome(self, reward):
         self.rewards.append(torch.Tensor([reward]))
@@ -97,7 +101,8 @@ class NaiveAI(object):
 class Policy(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        state_space = 10500
+        # state_space = 10500
+        state_space = 4690
         action_space = 1
         neurons = 100
         self.fc1 = torch.nn.Linear(state_space, neurons, bias=False)
