@@ -51,18 +51,14 @@ for episode_number in range(0,episodes):
         # Save prev_state
         prev_state_1 = cur_state_1
 
-        action1 = player.get_action(input_1, episode_number)
+        action1 = player.get_action(input_1)
         action2 = opponent.get_action()
         (ob1, ob2), (rew1, rew2), done, info = env.step((action1, action2))
 
         reward_sum += rew1
         player.store_outcome(rew1)
-        # if not args.headless:
-        #     env.render()
         if done:
             observation= env.reset()
-            #plot(ob1) # plot the reset observation
-            # print(f'episode {episode_number} over. Total rewards: {reward_sum}')
     
     player.episode_finished(episode_number)
 

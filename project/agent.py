@@ -21,9 +21,10 @@ class NaiveAI(object):
             self.policy.parameters(), lr=learningrate)
         self.loss = torch.nn.BCELoss(reduction='none')
 
-        if os.path.isfile("model-nn.pt"):
-            self.policy.load_state_dict(torch.load("model-nn.pt"))
+        # Load model if exists
+        self.load_model("model-nn.pt")
 
+        # Misc
         self.player_id = player_id
         self.name = "NaiveAI"
         self.gamma = 0.99
@@ -31,16 +32,16 @@ class NaiveAI(object):
         self.prop_ups = []
         self.rewards = []
         self.fake_labels = []
-        self.running_reward = None 
+        self.running_reward = None
 
-    def load_model(filename):
+    def load_model(self, filename):
         if os.path.isfile(filename):
             self.policy.load_state_dict(torch.load(filename))
 
     def get_name(self):
         return self.name
 
-    def get_action(self, input, episode_number):
+    def get_action(self, input):
         x = torch.from_numpy(input).float().to(self.train_device)
         prob_up = self.policy(x)
         self.prop_ups.append(prob_up)
@@ -67,7 +68,6 @@ class NaiveAI(object):
         # Calc discounted rewards
         all_rewards = torch.stack(self.rewards, dim=0).to(
             self.train_device).squeeze(1)
-        # all_rewards = np.vstack(self.rewards)
         discounted_rewards = discount_rewards(all_rewards, self.gamma)
         discounted_rewards -= torch.mean(discounted_rewards)
         discounted_rewards /= torch.std(discounted_rewards)
@@ -78,28 +78,28 @@ class NaiveAI(object):
         all_labels = torch.tensor(
             self.fake_labels).float().to(self.train_device)
         losses = self.loss(all_actions, all_labels)
-        # t_discounted_rewards = torch.from_numpy(
-        # discounted_rewards).squeeze(1).float().to(self.train_device)
-        # losses *= t_discounted_rewards
         losses *= discounted_rewards
         loss = torch.mean(losses)
 
         # Reset
-        self.prop_ups, self.rewards, self.fake_labels = [], [], []
+        self.reset()
 
         # Compute grad
         loss.backward(torch.tensor(1.0/self.batch_size).to(self.train_device))
 
+        # Output loss and rewards every now and then
         reward_sum = sum(all_rewards)
-        self.running_reward = reward_sum if self.running_reward is None else self.running_reward * self.gamma + reward_sum * 0.01 
-        # Output running rewards everynow and then
         if episode_number % 10 == 1:
-            print(f'EPNUM: {episode_number}, LOSS: {loss}. REWARDS: {reward_sum} RUNNING_REWARDS: {self.running_reward}')
+            print(f'Episode: {episode_number}, Loss: {loss}. Rewards: {reward_sum}')
 
-        # Update policy depends on eps/batch
+        # Update policy depends on batch size
         if episode_number % self.batch_size == 0 and episode_number > 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
+    
+    def reset(self):
+        self.prop_ups, self.rewards, self.fake_labels = [], [], []
+
 
 
 class Policy(torch.nn.Module):
